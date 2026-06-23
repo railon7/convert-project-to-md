@@ -1,0 +1,6 @@
+# Lista de proyectos a convertir a Markdown.
+# COPIA este archivo como "proyectos.txt" y pon tus rutas reales.
+# Una ruta por linea. Las lineas que empiezan por # se ignoran.
+
+C:\Users\TU_USUARIO\OneDrive\Proyectos\Cliente A
+C:\Users\TU_USUARIO\OneDrive\Proyectos\Cliente B

@@ -1,0 +1,16 @@
+# --- Registros de conversion (pueden contener nombres de documentos de clientes) ---
+Trabajados/
+conversion_log_*.txt
+*.log
+
+# --- Lista real de proyectos (rutas internas/privadas) ---
+# Publicar solo proyectos.example.txt; la lista real queda fuera del repo.
+proyectos.txt
+
+# --- Carpetas espejo generadas ---
+_md/
+
+# --- Archivos de sistema ---
+Thumbs.db
+desktop.ini
+.DS_Store
