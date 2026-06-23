@@ -1,3 +1,7 @@
+![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?logo=powershell&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
 # Convert-ProjectToMd
 
 Conversor automático de carpetas de proyecto a **Markdown** para Windows.
