@@ -52,10 +52,27 @@ function Append-Log {
     }
 }
 
+function Read-TextSmart {
+    # Detecta BOM UTF-8; si no hay, intenta UTF-8 estricto y si falla
+    # (bytes invalidos) asume Windows-1252 (ANSI), habitual en CSV
+    # exportados por Excel en Windows en espanol/europeo.
+    param([string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        return [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    }
+    try {
+        $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+        return $utf8Strict.GetString($bytes)
+    } catch {
+        return [System.Text.Encoding]::GetEncoding(1252).GetString($bytes)
+    }
+}
+
 function Convert-SemicolonCsv {
     param([string]$SrcLong, [string]$DestLong)
     try {
-        $text = [System.IO.File]::ReadAllText($SrcLong)
+        $text = Read-TextSmart -Path $SrcLong
         $reader = New-Object System.IO.StringReader($text)
         $parser = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($reader)
         $parser.TextFieldType = [Microsoft.VisualBasic.FileIO.FieldType]::Delimited
