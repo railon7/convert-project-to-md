@@ -94,3 +94,98 @@ En las instrucciones del proyecto de IA, indicar:
 ## Licencia
 
 MIT. Ver `LICENSE`.
+
+---
+
+# Convert-ProjectToMd
+
+Automatic project folder converter to **Markdown** for Windows.
+
+Converts all documents in a folder (Excel, Word, PowerPoint, PDF, CSV, HTML) to lightweight `.md` files, replicating the subfolder structure in a `_md` mirror. Designed to **work with AI assistants consuming fewer tokens**: the AI reads and searches plain text instead of heavy documents.
+
+---
+
+## Why?
+
+When working on a project with AI over a folder full of heavy files, each read consumes many resources (tokens) and runs slowly. By maintaining a Markdown copy of each document, searches and reads become much faster and more economical. The originals remain intact; the `.md` files are just a read layer.
+
+## Features
+
+- `_md` mirror that replicates the project folder structure.
+- **Incremental**: only reconverts what has changed since the last run.
+- **Long path support** (> 260 characters) via the `\\?\` prefix.
+- **OneDrive**: forces local download and waits (non-fatal) for file availability.
+- **Semicolon-separated CSV** (European format): correctly converted to Markdown tables.
+- **Robust UTF-8 logging** per execution, with date and time in the filename.
+- Processes **one project** or **multiple** from a list (`proyectos.txt`).
+
+## Requirements
+
+1. **Windows** 10/11.
+2. **Python** 3.10 or higher (check *Add python.exe to PATH* during installation).
+3. **MarkItDown**:
+   ```
+   pip install "markitdown[all]"
+   ```
+4. **Long paths enabled** (once only, in PowerShell as administrator, then restart):
+   ```
+   New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+   ```
+
+## Usage
+
+Convert **one** project:
+```
+powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ProjectPath "C:\path\to\project"
+```
+
+Convert **multiple** projects from a list:
+```
+powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ListFile ".\proyectos.txt"
+```
+
+Force full reconversion (ignore incremental):
+```
+powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ListFile ".\proyectos.txt" -Force
+```
+
+### The projects list
+
+Copy `proyectos.example.txt` as `proyectos.txt` and write **one path per line**. Lines starting with `#` are ignored. (The actual `proyectos.txt` file is excluded from the repository to avoid exposing private paths.)
+
+## Automation (every 10 days)
+
+Via Windows Task Scheduler (recommended, allows recovery if the PC was off):
+
+- Action → `powershell`, with arguments:
+  ```
+  -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\path\Convert-ProjectToMd.ps1" -ListFile "C:\path\proyectos.txt"
+  ```
+- Trigger: daily, repeat every **10 days**.
+- In *Settings*, check **"Run the task as soon as possible after a scheduled start is missed"**.
+
+## Using `.md` files with AI
+
+In the AI project instructions, indicate:
+
+> To search for information and read documents, **first** use the files in the `_md` folder (text version of the originals). Only refer to the original file if you need an exact value or formula that Markdown does not preserve.
+
+## Notes
+
+- Excel workbooks with multiple sheets are all dumped consecutively in the same `.md`.
+- Formulas are converted to their **calculated value**, not the formula itself.
+- Markdown captures content (text and tables), not visual formatting.
+- The `_md` folder auto-excludes itself: the script never converts its own output.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Solution |
+|---|---|---|
+| Completes but `.md` not created | File "cloud only" (OneDrive) | Right-click folder → "Always keep on this device" and re-run |
+| `'markitdown' not recognized` | Not in PATH | The script finds it automatically; for manual use run `python -m markitdown` |
+| Long path error | Long paths not enabled | Apply registry adjustment (admin) and restart |
+| `ffmpeg` warning | Only affects audio | Ignore |
+
+## License
+
+MIT. See `LICENSE`.
