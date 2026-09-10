@@ -1,12 +1,13 @@
-![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?logo=powershell&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
-![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+[![Español](https://img.shields.io/badge/Idioma-Español-blue)](#es) [![English](https://img.shields.io/badge/Language-English-green)](#en)
 
+<a id="es"></a>
 # Convert-ProjectToMd
 
 Conversor automático de carpetas de proyecto a **Markdown** para Windows.
 
 Convierte todos los documentos de una carpeta (Excel, Word, PowerPoint, PDF, CSV, HTML) a archivos `.md` ligeros, replicando la estructura de subcarpetas en un espejo `_md`. Pensado para **trabajar con asistentes de IA gastando menos tokens**: la IA lee y busca sobre texto plano en lugar de sobre documentos pesados.
+
+![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?logo=powershell&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
 ---
 
@@ -97,11 +98,14 @@ MIT. Ver `LICENSE`.
 
 ---
 
+<a id="en"></a>
 # Convert-ProjectToMd
 
 Automatic project folder converter to **Markdown** for Windows.
 
 Converts all documents in a folder (Excel, Word, PowerPoint, PDF, CSV, HTML) to lightweight `.md` files, replicating the subfolder structure in a `_md` mirror. Designed to **work with AI assistants consuming fewer tokens**: the AI reads and searches plain text instead of heavy documents.
+
+![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?logo=powershell&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
 ---
 
