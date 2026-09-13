@@ -168,6 +168,7 @@ Dentro se ve, por proyecto: cada archivo convertido (`OK`), saltado (sin cambios
 | Síntoma | Causa probable | Solución |
 |---|---|---|
 | Un archivo sale como `FALLO (sin salida)` en el log | Origen "solo en la nube" que no se descargó | Forzar descarga manual de la carpeta ("Mantener siempre en este dispositivo") y relanzar |
+| Un archivo sale como `FALLO (...)` con un mensaje de MarkItDown entre paréntesis | El paréntesis indica la causa real: `Workbook is encrypted` (Excel con contraseña), `The formats ['.ppt'] are not supported` (PowerPoint 97-2003), `Unexpected EOF` o `No /Root object` (PDF dañado) | Quitar la contraseña o guardar como `.pptx` / PDF válido y relanzar; si no tiene arreglo, ignorar ese archivo |
 | `'markitdown' no se reconoce` al usarlo suelto | La carpeta de scripts no está en el PATH | No afecta al script (lo localiza solo); para uso manual usar `python -m markitdown` |
 | La tarea programada no se ejecuta | Equipo apagado a las 15:00 / permisos | Windows la lanza al siguiente arranque; comprobar con `schtasks /Query` |
 | Aviso de `ffmpeg or avconv` | Falta ffmpeg (solo para audio) | Ignorar: no afecta a Office ni PDF |
