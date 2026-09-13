@@ -14,3 +14,6 @@ _md/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# --- Modelos de idioma de Tesseract (OCR): pesan y cada persona los descarga (docs/INSTALACION-OCR.md) ---
+tessdata/

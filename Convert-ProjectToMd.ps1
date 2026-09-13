@@ -1,23 +1,29 @@
-<#
+﻿<#
 ================================================================
- Convert-ProjectToMd.ps1  (version portable)
- Convierte todos los archivos de un proyecto a Markdown (.md)
- replicando la estructura de carpetas dentro de una subcarpeta "_md".
- Pensado para optimizar el trabajo con IA (texto ligero = menos tokens).
+ Convert-ProjectToMd.ps1  (con OCR integrado)
+ Convierte los archivos de un proyecto a Markdown (.md) en una
+ subcarpeta espejo "_md", replicando la estructura de carpetas.
 
- - Soporta rutas largas (>260 caracteres) con el prefijo \\?\.
- - Margen de espera para descarga de OneDrive (no fatal).
- - Log robusto en UTF-8, en la subcarpeta "Trabajados" (junto a este script).
- - CSV con punto y coma (;) -> se convierten a tabla Markdown.
+ NOVEDAD — OCR de rescate (opcional, con -OCR):
+   - PDF escaneado: si tras convertir el .md queda vacio o casi,
+     se pasa un OCR y su texto rellena el .md.
+   - Imagenes (.jpg/.png/.tiff/.bmp): se reconocen con OCR.
+   El OCR usa el motor Python "ocr-a-md.py" (Tesseract, spa+eng),
+   que debe estar en la MISMA carpeta que este script.
 
- USO (un proyecto):
-   powershell -ExecutionPolicy Bypass -File "Convert-ProjectToMd.ps1" -ProjectPath "C:\ruta\al\proyecto"
+ Caracteristicas base:
+   - Espejo _md incremental (solo reconvierte lo que cambia).
+   - Rutas largas (>260) con prefijo \\?\.
+   - OneDrive: fuerza descarga y espera (no fatal).
+   - CSV con ; -> tabla Markdown.
+   - Registro UNICO acumulado en Markdown: Trabajados\registro-conversiones.md
+     (cada ejecucion se anexa; solo resumen + fallos + rescatados por OCR).
 
- USO (varios proyectos desde la lista):
-   powershell -ExecutionPolicy Bypass -File "Convert-ProjectToMd.ps1" -ListFile "C:\ruta\a\proyectos.txt"
-
- Forzar reconversion total:
-   ... -Force
+ USO:
+   # Como siempre (sin OCR):
+   powershell -ExecutionPolicy Bypass -File "Convert-ProjectToMd.ps1" -ListFile "proyectos.txt"
+   # Con rescate OCR:
+   powershell -ExecutionPolicy Bypass -File "Convert-ProjectToMd.ps1" -ListFile "proyectos.txt" -OCR
 ================================================================
 #>
 
@@ -26,7 +32,12 @@ param(
     [string]$ListFile,
     [switch]$Force,
     [int]$MaxWaitSeconds = 30,
-    [string]$LogDir = (Join-Path $PSScriptRoot "Trabajados")
+    [string]$LogDir = (Join-Path $PSScriptRoot "Trabajados"),
+    # --- OCR ---
+    [switch]$OCR,                       # activa el rescate OCR
+    [int]$OcrMinChars = 15,             # si el .md de un PDF tiene menos de N caracteres utiles, se OCR-ea
+    [string]$OcrLang = "spa+eng",       # idiomas de Tesseract
+    [int]$OcrDpi = 300                  # resolucion de rasterizado del PDF
 )
 
 Add-Type -AssemblyName Microsoft.VisualBasic
@@ -35,7 +46,13 @@ $MarkItDown = Get-ChildItem "$env:APPDATA\Python\Python*\Scripts\markitdown.exe"
     Select-Object -First 1 -ExpandProperty FullName
 if (-not $MarkItDown) { $MarkItDown = "markitdown" }
 
-$Extensions = @('.xlsx','.xls','.docx','.doc','.pptx','.ppt','.pdf','.csv','.html','.htm')
+# Motor OCR (Python) y python.exe
+$OcrScript = Join-Path $PSScriptRoot "ocr-a-md.py"
+$PythonExe = "python"
+$TessData  = Join-Path $PSScriptRoot "tessdata"   # opcional: carpeta propia con eng/spa
+
+$Extensions      = @('.xlsx','.xls','.docx','.doc','.pptx','.ppt','.pdf','.csv','.html','.htm')
+$ImageExtensions = @('.jpg','.jpeg','.png','.tiff','.tif','.bmp')
 
 function Get-LongPath([string]$p) {
     if ([string]::IsNullOrEmpty($p)) { return $p }
@@ -50,6 +67,27 @@ function Append-Log {
         try { Add-Content -LiteralPath $Path -Value $Lines -Encoding UTF8; return }
         catch { Start-Sleep -Milliseconds 500 }
     }
+}
+
+function Get-MdCharCount {
+    # Cuenta caracteres NO en blanco de un .md (para detectar PDF vacio)
+    param([string]$LongPath)
+    try {
+        $t = [System.IO.File]::ReadAllText($LongPath)
+        return ($t -replace '\s', '').Length
+    } catch { return 0 }
+}
+
+function Invoke-Ocr {
+    # Ejecuta el motor OCR de Python; escribe el .md directamente en UTF-8. Devuelve $true si OK.
+    param([string]$SrcLong, [string]$DestLong)
+    if (-not (Test-Path -LiteralPath $OcrScript)) { return $false }
+    $ocrArgs = @($OcrScript, "$SrcLong", "--lang", $OcrLang, "--dpi", "$OcrDpi", "--out", "$DestLong")
+    if (Test-Path -LiteralPath $TessData) { $ocrArgs += @("--tessdata", "$TessData") }
+    try {
+        & $PythonExe @ocrArgs 2>$null
+        return (Test-Path -LiteralPath $DestLong)
+    } catch { return $false }
 }
 
 function Read-TextSmart {
@@ -100,15 +138,17 @@ function Convert-SemicolonCsv {
 }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-$RunStamp = Get-Date -Format "yyyy-MM-dd_HHmm"
-$LogFile  = Join-Path $LogDir "conversion_log_$RunStamp.txt"
-$header = @(
-    "###### REGISTRO DE CONVERSION ######",
-    "Fecha: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
-    "Modo Force: $Force | Espera max: $MaxWaitSeconds s | Rutas largas: si | CSV ;: si",
-    "------------------------------------"
+# Un UNICO registro en Markdown que se va acumulando en cada ejecucion
+$LogFile = Join-Path $LogDir "registro-conversiones.md"
+if (-not (Test-Path -LiteralPath $LogFile)) {
+    Append-Log -Path $LogFile -Lines @("# Registro de conversiones a Markdown", "")
+}
+# Cabecera de esta ejecucion (se anexa al final del mismo .md)
+Append-Log -Path $LogFile -Lines @(
+    "",
+    "## $(Get-Date -Format 'yyyy-MM-dd HH:mm') — Force: $Force · OCR: $OCR · Espera: ${MaxWaitSeconds}s",
+    ""
 )
-Append-Log -Path $LogFile -Lines $header
 
 function Wait-Hydrated {
     param([string]$LongPath, [int]$MaxSeconds)
@@ -126,15 +166,20 @@ function Convert-OneProject {
     param([string]$Root, [switch]$ForceAll, [string]$Log, [int]$MaxWait)
     if (-not (Test-Path -LiteralPath $Root)) {
         Write-Host "ERROR: no existe la carpeta $Root" -ForegroundColor Red
-        Append-Log -Path $Log -Lines @("ERROR: no existe la carpeta $Root"); return
+        Append-Log -Path $Log -Lines @("### $Root", "_No existe la carpeta._", ""); return
     }
     $MirrorRoot = Join-Path $Root "_md"
     New-Item -ItemType Directory -Force -Path (Get-LongPath $MirrorRoot) | Out-Null
-    $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add(""); $lines.Add("===== PROYECTO: $Root =====")
-    $converted = 0; $skipped = 0; $failed = 0
+    $failLines = New-Object System.Collections.Generic.List[string]   # solo fallos
+    $ocrLines  = New-Object System.Collections.Generic.List[string]   # solo rescatados por OCR
+    $converted = 0; $skipped = 0; $failed = 0; $ocrCount = 0
+
+    # Extensiones a procesar: documentos siempre; imagenes solo si -OCR
+    $exts = $Extensions
+    if ($OCR) { $exts = $Extensions + $ImageExtensions }
+
     Get-ChildItem -LiteralPath $Root -Recurse -File | Where-Object {
-        ($Extensions -contains $_.Extension.ToLower()) -and ($_.FullName -notlike "$MirrorRoot*")
+        ($exts -contains $_.Extension.ToLower()) -and ($_.FullName -notlike "$MirrorRoot*")
     } | ForEach-Object {
         $src = $_.FullName; $ext = $_.Extension.ToLower()
         $rel = $src.Substring($Root.Length).TrimStart('\')
@@ -147,6 +192,15 @@ function Convert-OneProject {
             ((Get-Item -LiteralPath $destLong).LastWriteTime -ge $_.LastWriteTime)) { $skipped++; return }
         attrib +P "$src" 2>$null | Out-Null
         Wait-Hydrated -LongPath $srcLong -MaxSeconds $MaxWait
+
+        # --- Imagen: OCR directo (solo si -OCR, que es cuando llega aqui) ---
+        if ($ImageExtensions -contains $ext) {
+            if (Invoke-Ocr -SrcLong $srcLong -DestLong $destLong) { $converted++; $ocrCount++; $ocrLines.Add("$rel [imagen]") }
+            else { $failed++; $failLines.Add("$rel (OCR imagen)") }
+            return
+        }
+
+        # --- CSV con ; ---
         $isCsvSemicolon = $false
         if ($ext -eq '.csv') {
             try {
@@ -157,13 +211,22 @@ function Convert-OneProject {
                 }
             } catch {}
         }
+
         try {
             if ($isCsvSemicolon) {
-                if (Convert-SemicolonCsv -SrcLong $srcLong -DestLong $destLong) { $converted++; $lines.Add("OK    $rel  [csv ;]") }
-                else { $failed++; $lines.Add("FALLO $rel (csv ; no convertido)") }
+                if (Convert-SemicolonCsv -SrcLong $srcLong -DestLong $destLong) { $converted++ }
+                else { $failed++; $failLines.Add("$rel (csv ; no convertido)") }
             } else {
                 $mdOutput = & $MarkItDown "$srcLong" -o "$destLong" 2>&1
-                if (Test-Path -LiteralPath $destLong) { $converted++; $lines.Add("OK    $rel") }
+                if (Test-Path -LiteralPath $destLong) {
+                    # --- Rescate OCR para PDF vacio/escaneado ---
+                    if ($OCR -and $ext -eq '.pdf' -and (Get-MdCharCount $destLong) -lt $OcrMinChars) {
+                        if (Invoke-Ocr -SrcLong $srcLong -DestLong $destLong) { $converted++; $ocrCount++; $ocrLines.Add("$rel [pdf escaneado]") }
+                        else { $failed++; $failLines.Add("$rel (OCR pdf)") }
+                    } else {
+                        $converted++
+                    }
+                }
                 else {
                     $failed++
                     # stderr llega como ErrorRecord: se usa Exception.Message porque en Windows
@@ -172,15 +235,26 @@ function Convert-OneProject {
                         if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ }
                     } | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Last 1)
                     if (-not $reason) { $reason = "sin salida" }
-                    $lines.Add("FALLO $rel ($reason)")
+                    $failLines.Add("$rel ($reason)")
                 }
             }
-        } catch { $failed++; $lines.Add("FALLO $rel ($($_.Exception.Message))") }
+        } catch { $failed++; $failLines.Add("$rel ($($_.Exception.Message))") }
     }
-    $summary = "[$Root] Convertidos: $converted | Saltados: $skipped | Fallidos: $failed"
-    Write-Host $summary -ForegroundColor Cyan
-    $lines.Add($summary)
-    Append-Log -Path $Log -Lines $lines.ToArray()
+    Write-Host "[$Root] Convertidos: $converted | Saltados: $skipped | Fallidos: $failed | OCR: $ocrCount" -ForegroundColor Cyan
+    # --- Bloque Markdown de este proyecto para el registro acumulado ---
+    $block = New-Object System.Collections.Generic.List[string]
+    $block.Add("### $Root")
+    $block.Add("Convertidos: $converted · Saltados: $skipped · Fallidos: $failed · OCR: $ocrCount")
+    if ($ocrLines.Count -gt 0) {
+        $block.Add(""); $block.Add("Rellenados por OCR:")
+        foreach ($o in $ocrLines) { $block.Add("- $o") }
+    }
+    if ($failLines.Count -gt 0) {
+        $block.Add(""); $block.Add("Fallidos:")
+        foreach ($f in $failLines) { $block.Add("- $f") }
+    }
+    $block.Add("")
+    Append-Log -Path $Log -Lines $block.ToArray()
 }
 
 if ($ListFile) {
@@ -194,4 +268,4 @@ elseif ($ProjectPath) {
 }
 else { Write-Host "Indica -ProjectPath o -ListFile" -ForegroundColor Yellow }
 
-Write-Host "Log guardado en: $LogFile" -ForegroundColor Green
+Write-Host "Registro actualizado en: $LogFile" -ForegroundColor Green

@@ -19,7 +19,7 @@ Todo el proceso está automatizado con un script que:
 2. Crea dentro una subcarpeta llamada **`_md`** que **replica la estructura de subcarpetas** del proyecto.
 3. Convierte cada documento a `.md` y lo deja en su sitio espejo dentro de `_md`.
 4. Es **incremental**: en cada pasada solo reconvierte lo que ha cambiado desde la última vez.
-5. Guarda un **registro (log)** de cada ejecución, con la fecha, en una carpeta central de control.
+5. Añade cada ejecución, con su fecha, a un **registro único** (`Trabajados\registro-conversiones.md`) en una carpeta central de control.
 
 ---
 
@@ -31,16 +31,17 @@ Todo vive en esta carpeta raíz:
 C:\Users\railo\OneDrive\Aplicaciones\Automatizaciones Claude\Convertir carpetas a.md\
 │
 ├── Convert-ProjectToMd.ps1      <- El script que hace el trabajo
+├── ocr-a-md.py                  <- Motor OCR (solo se usa con -OCR)
 ├── proyectos.txt                <- Lista de carpetas de proyecto a procesar
+├── tessdata\                    <- Idiomas de Tesseract para el OCR (opcional)
 │
 ├── Sops\                        <- Documentación (este SOP y la plantilla de proyecto)
 │   ├── SOP - Conversion de carpetas a Markdown.md
+│   ├── INSTALACION-OCR.md
 │   └── instruccionesproyecto.md
 │
-└── Trabajados\                  <- Logs de cada ejecucion (se crea solo)
-    ├── conversion_log_2026-06-12_1500.txt
-    ├── conversion_log_2026-06-22_1500.txt
-    └── ...
+└── Trabajados\                  <- Registro de ejecuciones (se crea solo)
+    └── registro-conversiones.md <- Un unico archivo que acumula todas las pasadas
 ```
 
 Y dentro de **cada proyecto**, el script crea su propia carpeta espejo:
@@ -87,9 +88,12 @@ powershell -ExecutionPolicy Bypass -File "C:\Users\railo\OneDrive\Aplicaciones\A
 ### c) Forzar reconversión total (ignorar el incremental)
 Añade `-Force` al final de cualquiera de los anteriores. Útil si sospechas que algún `.md` quedó mal.
 
+### d) Rescate OCR para PDF escaneados e imágenes
+Añade `-OCR` al final de cualquiera de los anteriores. Requiere la instalación opcional descrita en `INSTALACION-OCR.md` (Tesseract y tres paquetes de Python). Es más lento, así que conviene usarlo en pasadas manuales y no en la tarea programada.
+
 > **`-ExecutionPolicy Bypass`** permite ejecutar el script sin cambiar la política de seguridad del equipo. Es seguro y solo aplica a esa ejecución.
 
-Al terminar, en pantalla verás un resumen tipo `Convertidos: X | Saltados: Y | Fallidos: Z` por cada proyecto, y la ruta del log generado.
+Al terminar, en pantalla verás un resumen tipo `Convertidos: X | Saltados: Y | Fallidos: Z | OCR: N` por cada proyecto, y la ruta del registro.
 
 ---
 
@@ -145,10 +149,9 @@ Editar el archivo `proyectos.txt`:
 
 ## 7. Control y registros (carpeta Trabajados)
 
-Cada ejecución genera un archivo en `Trabajados\` con la fecha y hora en el nombre:
-`conversion_log_AAAA-MM-DD_HHmm.txt`.
+Todas las ejecuciones se acumulan en un único archivo Markdown: `Trabajados\registro-conversiones.md`. Cada pasada añade al final una cabecera con su fecha y hora, y si se usó `-Force` u `-OCR`.
 
-Dentro se ve, por proyecto: cada archivo convertido (`OK`), saltado (sin cambios) o fallido (`FALLO`), más un resumen final. Sirve para auditar qué se procesó y detectar archivos problemáticos.
+Debajo, por proyecto: un resumen (convertidos, saltados, fallidos y rescatados por OCR), la lista «Rellenados por OCR» si la hubo, y la lista «Fallidos» con la causa de cada uno entre paréntesis (por ejemplo, Excel con contraseña o PDF dañado). Los archivos convertidos sin incidencias no se listan uno a uno. Sirve para auditar qué se procesó y detectar archivos problemáticos.
 
 ---
 
@@ -167,8 +170,8 @@ Dentro se ve, por proyecto: cada archivo convertido (`OK`), saltado (sin cambios
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| Un archivo sale como `FALLO (sin salida)` en el log | Origen "solo en la nube" que no se descargó | Forzar descarga manual de la carpeta ("Mantener siempre en este dispositivo") y relanzar |
-| Un archivo sale como `FALLO (...)` con un mensaje de MarkItDown entre paréntesis | El paréntesis indica la causa real: `Workbook is encrypted` (Excel con contraseña), `The formats ['.ppt'] are not supported` (PowerPoint 97-2003), `Unexpected EOF` o `No /Root object` (PDF dañado) | Quitar la contraseña o guardar como `.pptx` / PDF válido y relanzar; si no tiene arreglo, ignorar ese archivo |
+| Un archivo aparece en «Fallidos» con `(sin salida)` | Origen "solo en la nube" que no se descargó | Forzar descarga manual de la carpeta ("Mantener siempre en este dispositivo") y relanzar |
+| Un archivo aparece en «Fallidos» con un mensaje de MarkItDown entre paréntesis | El paréntesis indica la causa real: `Workbook is encrypted` (Excel con contraseña), `The formats ['.ppt'] are not supported` (PowerPoint 97-2003), `Unexpected EOF` o `No /Root object` (PDF dañado) | Quitar la contraseña o guardar como `.pptx` / PDF válido y relanzar; si no tiene arreglo, ignorar ese archivo |
 | `'markitdown' no se reconoce` al usarlo suelto | La carpeta de scripts no está en el PATH | No afecta al script (lo localiza solo); para uso manual usar `python -m markitdown` |
 | La tarea programada no se ejecuta | Equipo apagado a las 15:00 / permisos | Windows la lanza al siguiente arranque; comprobar con `schtasks /Query` |
 | Aviso de `ffmpeg or avconv` | Falta ffmpeg (solo para audio) | Ignorar: no afecta a Office ni PDF |

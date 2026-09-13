@@ -5,7 +5,7 @@
 
 Conversor automático de carpetas de proyecto a **Markdown** para Windows.
 
-Convierte todos los documentos de una carpeta (Excel, Word, PowerPoint, PDF, CSV, HTML) a archivos `.md` ligeros, replicando la estructura de subcarpetas en un espejo `_md`. Pensado para **trabajar con asistentes de IA gastando menos tokens**: la IA lee y busca sobre texto plano en lugar de sobre documentos pesados.
+Convierte todos los documentos de una carpeta (Excel, Word, PowerPoint, PDF, CSV, HTML y, con OCR opcional, PDF escaneados e imágenes) a archivos `.md` ligeros, replicando la estructura de subcarpetas en un espejo `_md`. Pensado para **trabajar con asistentes de IA gastando menos tokens**: la IA lee y busca sobre texto plano en lugar de sobre documentos pesados.
 
 ![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?logo=powershell&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
@@ -21,8 +21,9 @@ Cuando se trabaja un proyecto con IA sobre una carpeta llena de archivos pesados
 - **Incremental**: solo reconvierte lo que ha cambiado desde la última pasada.
 - **Soporte de rutas largas** (> 260 caracteres) mediante el prefijo `\\?\`.
 - **OneDrive**: fuerza la descarga local y espera (no fatal) a que el archivo esté disponible.
-- **CSV con punto y coma** (formato europeo): se convierten a tabla Markdown correctamente.
-- **Log robusto** en UTF-8 por ejecución, con fecha y hora en el nombre.
+- **CSV con punto y coma** (formato europeo): se convierten a tabla Markdown correctamente, también si están en Windows-1252 (ANSI), como los exporta Excel.
+- **Registro único** en Markdown (`Trabajados\registro-conversiones.md`): cada ejecución añade su fecha, un resumen por proyecto y los fallos con su causa.
+- **OCR opcional** (`-OCR`) para PDF escaneados e imágenes, en local con Tesseract. Ver [docs/INSTALACION-OCR.md](docs/INSTALACION-OCR.md).
 - Procesa **un proyecto** o **varios** desde una lista (`proyectos.txt`).
 
 ## Requisitos
@@ -37,6 +38,7 @@ Cuando se trabaja un proyecto con IA sobre una carpeta llena de archivos pesados
    ```
    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
    ```
+5. **OCR (opcional)**: Tesseract y tres paquetes de Python. Pasos en [docs/INSTALACION-OCR.md](docs/INSTALACION-OCR.md).
 
 ## Uso
 
@@ -55,6 +57,11 @@ Forzar reconversión total (ignorar el incremental):
 powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ListFile ".\proyectos.txt" -Force
 ```
 
+Con rescate OCR (PDF escaneados e imágenes; requiere la instalación opcional):
+```
+powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ListFile ".\proyectos.txt" -OCR
+```
+
 ### La lista de proyectos
 
 Copia `proyectos.example.txt` como `proyectos.txt` y escribe **una ruta por línea**. Las líneas que empiezan por `#` se ignoran. (El archivo `proyectos.txt` real está excluido del repositorio para no exponer rutas privadas.)
@@ -69,6 +76,7 @@ Mediante el Programador de tareas de Windows (recomendado, permite recuperación
   ```
 - Desencadenador: diariamente, repetir cada **10 días**.
 - En *Configuración*, marcar **"Ejecutar la tarea lo antes posible tras un inicio programado omitido"**.
+- Dejar la tarea **sin `-OCR`** (el OCR es más lento) y lanzar pasadas manuales con `-OCR` cuando haga falta.
 
 ## Usar los `.md` con la IA
 
@@ -88,6 +96,7 @@ En las instrucciones del proyecto de IA, indicar:
 | Síntoma | Causa probable | Solución |
 |---|---|---|
 | Acaba pero no se crea el `.md` | Archivo "solo en la nube" (OneDrive) | Clic derecho en la carpeta → "Mantener siempre en este dispositivo" y relanzar |
+| Un archivo aparece en «Fallidos» del registro | La causa va entre paréntesis: Excel con contraseña, `.ppt` (97-2003) no soportado, PDF dañado | Quitar la contraseña o guardar como `.pptx` / PDF válido y relanzar; si no tiene arreglo, ignorarlo |
 | `'markitdown' no se reconoce` | No quedó en el PATH | El script lo localiza solo; para uso manual usar `python -m markitdown` |
 | Error de ruta demasiado larga | Falta activar rutas largas | Aplicar el ajuste del registro (admin) y reiniciar |
 | Aviso de `ffmpeg` | Solo afecta a audio | Ignorar |
@@ -103,7 +112,7 @@ MIT. Ver `LICENSE`.
 
 Automatic project folder converter to **Markdown** for Windows.
 
-Converts all documents in a folder (Excel, Word, PowerPoint, PDF, CSV, HTML) to lightweight `.md` files, replicating the subfolder structure in a `_md` mirror. Designed to **work with AI assistants consuming fewer tokens**: the AI reads and searches plain text instead of heavy documents.
+Converts all documents in a folder (Excel, Word, PowerPoint, PDF, CSV, HTML and, with optional OCR, scanned PDFs and images) to lightweight `.md` files, replicating the subfolder structure in a `_md` mirror. Designed to **work with AI assistants consuming fewer tokens**: the AI reads and searches plain text instead of heavy documents.
 
 ![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?logo=powershell&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
@@ -119,8 +128,9 @@ When working on a project with AI over a folder full of heavy files, each read c
 - **Incremental**: only reconverts what has changed since the last run.
 - **Long path support** (> 260 characters) via the `\\?\` prefix.
 - **OneDrive**: forces local download and waits (non-fatal) for file availability.
-- **Semicolon-separated CSV** (European format): correctly converted to Markdown tables.
-- **Robust UTF-8 logging** per execution, with date and time in the filename.
+- **Semicolon-separated CSV** (European format): correctly converted to Markdown tables, including Windows-1252 (ANSI) files as exported by Excel.
+- **Single log** in Markdown (`Trabajados\registro-conversiones.md`): each run appends its date, a per-project summary and the failures with their cause.
+- **Optional OCR** (`-OCR`) for scanned PDFs and images, locally with Tesseract. See [docs/INSTALACION-OCR.md](docs/INSTALACION-OCR.md) (Spanish).
 - Processes **one project** or **multiple** from a list (`proyectos.txt`).
 
 ## Requirements
@@ -135,6 +145,7 @@ When working on a project with AI over a folder full of heavy files, each read c
    ```
    New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
    ```
+5. **OCR (optional)**: Tesseract plus three Python packages. Steps in [docs/INSTALACION-OCR.md](docs/INSTALACION-OCR.md).
 
 ## Usage
 
@@ -153,6 +164,11 @@ Force full reconversion (ignore incremental):
 powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ListFile ".\proyectos.txt" -Force
 ```
 
+With OCR rescue (scanned PDFs and images; requires the optional setup):
+```
+powershell -ExecutionPolicy Bypass -File ".\Convert-ProjectToMd.ps1" -ListFile ".\proyectos.txt" -OCR
+```
+
 ### The projects list
 
 Copy `proyectos.example.txt` as `proyectos.txt` and write **one path per line**. Lines starting with `#` are ignored. (The actual `proyectos.txt` file is excluded from the repository to avoid exposing private paths.)
@@ -167,6 +183,7 @@ Via Windows Task Scheduler (recommended, allows recovery if the PC was off):
   ```
 - Trigger: daily, repeat every **10 days**.
 - In *Settings*, check **"Run the task as soon as possible after a scheduled start is missed"**.
+- Keep the scheduled task **without `-OCR`** (OCR is slower) and run manual passes with `-OCR` when needed.
 
 ## Using `.md` files with AI
 
@@ -186,6 +203,7 @@ In the AI project instructions, indicate:
 | Symptom | Likely cause | Solution |
 |---|---|---|
 | Completes but `.md` not created | File "cloud only" (OneDrive) | Right-click folder → "Always keep on this device" and re-run |
+| A file is listed under «Fallidos» in the log | The cause is in parentheses: password-protected Excel, unsupported `.ppt` (97-2003), damaged PDF | Remove the password or save as `.pptx` / a valid PDF and re-run; if it cannot be fixed, ignore it |
 | `'markitdown' not recognized` | Not in PATH | The script finds it automatically; for manual use run `python -m markitdown` |
 | Long path error | Long paths not enabled | Apply registry adjustment (admin) and restart |
 | `ffmpeg` warning | Only affects audio | Ignore |

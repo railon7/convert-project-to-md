@@ -102,7 +102,7 @@ New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name
 
 1. Crea una carpeta para la automatización, por ejemplo:
    `C:\Users\TU_USUARIO\Documentos\Conversor MD`
-2. Copia dentro `Convert-ProjectToMd.ps1` y `proyectos.txt`.
+2. Copia dentro `Convert-ProjectToMd.ps1` y `proyectos.txt` (y también `ocr-a-md.py` si vas a usar el OCR opcional; ver `INSTALACION-OCR.md`).
 3. No crees nada más: el script creará solo la subcarpeta `Trabajados` (registros) y, dentro de cada proyecto, una subcarpeta `_md` con los archivos convertidos.
 
 ---
@@ -152,13 +152,13 @@ La primera vez tarda; las siguientes son rápidas (solo procesa lo que cambió).
 
 ## 🔍 Paso 8 · Revisar el resultado
 
-Cada ejecución deja un registro en `Trabajados` (`conversion_log_AAAA-MM-DD_HHmm.txt`). Para ver solo los fallos del último:
+Todas las ejecuciones se acumulan en `Trabajados\registro-conversiones.md` (la última queda al final). Para ver sus últimas líneas:
 
 ```powershell
-Get-ChildItem "C:\Users\TU_USUARIO\Documentos\Conversor MD\Trabajados" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object { Select-String -Path $_.FullName -Pattern "FALLO" }
+Get-Content "C:\Users\TU_USUARIO\Documentos\Conversor MD\Trabajados\registro-conversiones.md" -Tail 40
 ```
 
-Si no devuelve nada, no hubo fallos. Algún fallo suelto (archivo vacío, corrupto o formato raro) es normal.
+Si bajo el proyecto no aparece la lista «Fallidos», no hubo fallos. Algún fallo suelto es normal; la causa sale entre paréntesis (archivo con contraseña, formato antiguo, PDF dañado).
 
 ---
 
@@ -179,7 +179,7 @@ Con el **Programador de tareas** de Windows:
 6. **Condiciones:** desmarca *"Iniciar solo si está conectado a la corriente"*.
 7. **Configuración:** marca **"Ejecutar la tarea lo antes posible tras un inicio programado omitido"**.
 8. Acepta (pedirá tu contraseña de Windows).
-9. **Probar:** clic derecho en la tarea → **Ejecutar**. Si genera un registro nuevo, está perfecta.
+9. **Probar:** clic derecho en la tarea → **Ejecutar**. Si añade una entrada nueva al final del registro, está perfecta.
 
 > 🔌 **¿PC apagado a las 15:00?** Con el ajuste del punto 7, se lanza sola al encender. No se pierde.
 
@@ -204,7 +204,7 @@ Copia el error y pégaselo a la IA con uno de estos prompts:
 > "Tengo Windows y quiero instalar Python (con Add to PATH) y luego `pip install markitdown[all]`. Dame los pasos exactos y cómo comprobar que está bien."
 
 **3) Un archivo sale como FALLO**
-> "En el registro, este archivo sale como FALLO: *[línea]*. ¿Cómo averiguo la causa (vacío, corrupto, formato) y qué hago?"
+> "En el registro, este archivo aparece en Fallidos: *[línea]*. ¿Qué significa la causa que va entre paréntesis y qué hago?"
 
 **4) Crear la tarea programada**
 > "Guíame para crear una tarea en el Programador de tareas que ejecute este comando cada 10 días a las 15:00, y que corra aunque el PC haya estado apagado: *[comando]*."
