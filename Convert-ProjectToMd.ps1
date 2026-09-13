@@ -162,9 +162,14 @@ function Convert-OneProject {
                 if (Convert-SemicolonCsv -SrcLong $srcLong -DestLong $destLong) { $converted++; $lines.Add("OK    $rel  [csv ;]") }
                 else { $failed++; $lines.Add("FALLO $rel (csv ; no convertido)") }
             } else {
-                & $MarkItDown "$srcLong" -o "$destLong" 2>$null
+                $mdOutput = & $MarkItDown "$srcLong" -o "$destLong" 2>&1
                 if (Test-Path -LiteralPath $destLong) { $converted++; $lines.Add("OK    $rel") }
-                else { $failed++; $lines.Add("FALLO $rel (sin salida)") }
+                else {
+                    $failed++
+                    $reason = ($mdOutput | ForEach-Object { $_.ToString() } | Where-Object { $_.Trim() -ne "" } | Select-Object -Last 1)
+                    if (-not $reason) { $reason = "sin salida" }
+                    $lines.Add("FALLO $rel ($reason)")
+                }
             }
         } catch { $failed++; $lines.Add("FALLO $rel ($($_.Exception.Message))") }
     }
