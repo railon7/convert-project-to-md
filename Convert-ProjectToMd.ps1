@@ -166,7 +166,11 @@ function Convert-OneProject {
                 if (Test-Path -LiteralPath $destLong) { $converted++; $lines.Add("OK    $rel") }
                 else {
                     $failed++
-                    $reason = ($mdOutput | ForEach-Object { $_.ToString() } | Where-Object { $_.Trim() -ne "" } | Select-Object -Last 1)
+                    # stderr llega como ErrorRecord: se usa Exception.Message porque en Windows
+                    # PowerShell 5.1 ToString() de una linea vacia devuelve el nombre del tipo.
+                    $reason = ($mdOutput | ForEach-Object {
+                        if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ }
+                    } | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Last 1)
                     if (-not $reason) { $reason = "sin salida" }
                     $lines.Add("FALLO $rel ($reason)")
                 }
